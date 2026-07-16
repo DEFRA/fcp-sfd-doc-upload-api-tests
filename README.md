@@ -1,4 +1,4 @@
-# CDP Node.js Environment Test Suite Template
+fcp-sfd-doc-upload-api-tests
 
 The template to create a service that runs WDIO tests against an environment.
 
