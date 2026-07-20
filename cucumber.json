@@ -1,0 +1,11 @@
+{
+    "default": {
+      "paths": ["features/upload-journey/**/*.feature"],
+      "require": [
+        "features/support/**/*.js",
+        "features/step-definitions/**/*.js"
+      ],
+      "format": ["progress-bar"],
+      "parallel": 1
+    }
+  }
