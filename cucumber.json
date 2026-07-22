@@ -1,0 +1,14 @@
+{
+  "default": {
+    "paths": ["features/upload-journey/**/*.feature"],
+    "require": [
+      "features/support/**/*.js",
+      "features/step-definitions/**/*.js"
+    ],
+    "format": [
+      "progress-bar",
+      "allure-cucumberjs/reporter:allure-results/report.json"
+    ],
+    "parallel": 1
+  }
+}
