@@ -53,6 +53,10 @@ When(
       })
       const body = await response.json()
 
+      if (body.data.uploadStatus === 'failure') {
+        throw new Error(`Upload ended with status: ${body.data.uploadStatus}`)
+      }
+
       if (body.data.uploadStatus !== 'pending') {
         this.statusResponse = body
         return
