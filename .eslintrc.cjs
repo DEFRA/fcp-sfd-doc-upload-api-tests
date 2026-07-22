@@ -8,11 +8,7 @@ module.exports = {
     before: true,
     after: true
   },
-  extends: [
-    'standard',
-    'prettier',
-    'eslint:recommended'
-  ],
+  extends: ['standard', 'prettier', 'eslint:recommended'],
   overrides: [],
   parserOptions: {
     ecmaVersion: 'latest'

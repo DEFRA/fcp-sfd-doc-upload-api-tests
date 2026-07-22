@@ -5,7 +5,10 @@
       "features/support/**/*.js",
       "features/step-definitions/**/*.js"
     ],
-    "format": ["progress-bar","allure-cucumberjs/reporter:allure-results/report.json"],
+    "format": [
+      "progress-bar",
+      "allure-cucumberjs/reporter:allure-results/report.json"
+    ],
     "parallel": 1
   }
 }
