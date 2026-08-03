@@ -107,3 +107,38 @@ Then(
     assert.equal(response.headers.get('content-type'), 'application/pdf')
   }
 )
+
+When(
+  'I upload a {string} of type {string} to the CDP Uploader',
+  async function (filename, contentType) {
+    const fileBuffer = fs.readFileSync(`fixtures/files/${filename}`)
+    const formData = new FormData()
+    formData.append(
+      'file-upload-1',
+      new Blob([fileBuffer], { type: contentType }),
+      filename
+    )
+
+    const response = await fetch(this.uploadUrl, {
+      method: 'POST',
+      body: formData,
+      redirect: 'manual'
+    })
+
+    assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
+  }
+)
+
+Then(
+  'the response should contain the correct file metadata for {string}',
+  function (expectedFilename) {
+    const form = this.statusResponse.data.form
+    const firstFile = Object.values(form)[0]
+
+    assert.ok(firstFile.fileId, 'Expected a fileId')
+    assert.ok(firstFile.checksumSha256, 'Expected a checksum')
+    assert.equal(firstFile.filename, expectedFilename)
+
+    this.fileId = firstFile.fileId
+  }
+)
