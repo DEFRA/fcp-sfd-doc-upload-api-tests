@@ -3,6 +3,11 @@ import { strict as assert } from 'assert'
 import fs from 'node:fs'
 import { buildInitiatePayload } from '../../fixtures/initiate-payload.js'
 
+import {
+  createLargeFile,
+  cleanupLargeFile
+} from '../../fixtures/large-file-helper.js'
+
 Given('I initiate an upload session with valid metadata', async function () {
   const payload = buildInitiatePayload()
 
@@ -265,5 +270,30 @@ Then(
       ),
       `Expected validation.keys to include 'metadata.${fieldName.toLowerCase()}', got: ${JSON.stringify(this.initiateResponseBody.validation.keys)}`
     )
+  }
+)
+
+When(
+  'I upload a {int} MB file to the CDP Uploader',
+  { timeout: 120 * 1000 },
+  async function (sizeInMB) {
+    const filePath = createLargeFile(sizeInMB)
+    const fileBuffer = fs.readFileSync(filePath)
+
+    const formData = new FormData()
+    formData.append(
+      'file-upload-1',
+      new Blob([fileBuffer], { type: 'application/pdf' }),
+      `large-file-${sizeInMB}mb.pdf`
+    )
+
+    this.uploadResponse = await fetch(this.uploadUrl, {
+      method: 'POST',
+      body: formData,
+      redirect: 'manual'
+    })
+
+    // Cleanup so we don't fill tmp with junk
+    cleanupLargeFile(filePath)
   }
 )

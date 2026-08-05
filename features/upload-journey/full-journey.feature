@@ -53,4 +53,20 @@ Feature: Full document upload journey
       | CRN       | 999999999    |
       | CRN       | 10000000000  |
       | FRN       | 999999999    |
-      | FRN       | 10000000000  |    
+      | FRN       | 10000000000  |
+
+  # NOTE: current CDP Uploader limit in ext-test is 10.49MB. Waiting on dev
+  # to confirm intended limits. Update when confirmed.
+  @file-size-boundaries
+  Scenario: File just under the per-file size limit is accepted
+    Given I initiate an upload session with valid metadata
+    When I upload a 10 MB file to the CDP Uploader
+    And I poll the status endpoint until the upload completes
+    Then the upload status should be "success"
+
+  @file-size-boundaries
+  Scenario: File just over the per-file size limit is rejected
+    Given I initiate an upload session with valid metadata
+    When I upload a 11 MB file to the CDP Uploader
+    And I check the status endpoint for the unsupported upload
+    Then the status response should indicate the unsupported upload was not accepted      
