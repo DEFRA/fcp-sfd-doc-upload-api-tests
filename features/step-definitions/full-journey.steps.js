@@ -58,12 +58,6 @@ When(
       })
       const body = await response.json()
 
-      // eslint-disable-next-line no-console
-      console.log(
-        `Poll ${attempt + 1}: status ${response.status}, body:`,
-        JSON.stringify(body)
-      )
-
       if (body.data && body.data.uploadStatus !== 'pending') {
         this.statusResponse = body
         return
