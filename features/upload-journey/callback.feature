@@ -14,6 +14,7 @@ Feature: Callback endpoint validation
     And the same callback payload is posted again
     Then the second callback response status should be 200
     And the second callback response should confirm the duplicate was ignored
+    And only one record should exist in MongoDB for that fileId
 
   @callback
   Scenario: Callback payload with a missing required field is rejected

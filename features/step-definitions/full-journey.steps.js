@@ -472,3 +472,42 @@ Then('the reference should be preserved in the status response', function () {
     `Expected reference to be preserved, got: ${this.statusResponse.data.metadata.reference}`
   )
 })
+
+Then(
+  'the uploaded file should be retrievable via the SBI metadata endpoint',
+  async function () {
+    const sbi = process.env.TEST_USER_SBI || process.env.EXT_TEST_TEST_USER_SBI
+
+    const response = await fetch(`${this.baseUrl}/api/v1/metadata/sbi/${sbi}`, {
+      headers: { Authorization: `Bearer ${this.token}` }
+    })
+
+    assert.equal(response.status, 200, `Expected 200, got ${response.status}`)
+
+    const body = await response.json()
+    assert.ok(Array.isArray(body.data), 'Expected data to be an array')
+
+    const matchingRecord = body.data.find(
+      (record) => record.file.fileId === this.fileId
+    )
+    assert.ok(
+      matchingRecord,
+      `Expected to find persisted record for fileId ${this.fileId}`
+    )
+
+    assert.equal(
+      matchingRecord.file.fileStatus,
+      'complete',
+      'Expected fileStatus to be complete'
+    )
+    assert.equal(
+      matchingRecord.metadata.type,
+      'CS_Agreement_Evidence',
+      'Expected type to match'
+    )
+    assert.ok(
+      matchingRecord.metadata.submissionId,
+      'Expected submissionId to be present'
+    )
+  }
+)

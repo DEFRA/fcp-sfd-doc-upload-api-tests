@@ -113,4 +113,13 @@ Feature: Full document upload journey
     When I upload a real PDF file to the CDP Uploader
     And I poll the status endpoint until the upload completes
     Then the upload status should be "success"
-    And the reference should be preserved in the status response          
+    And the reference should be preserved in the status response
+
+  @mongo-persistence
+  Scenario: Upload metadata is persisted and retrievable via the SBI metadata endpoint
+    Given I initiate an upload session with valid metadata
+    When I upload a real PDF file to the CDP Uploader
+    And I poll the status endpoint until the upload completes
+    Then the upload status should be "success"
+    And the response should contain the correct file metadata
+    And the uploaded file should be retrievable via the SBI metadata endpoint               
