@@ -297,3 +297,103 @@ When(
     cleanupLargeFile(filePath)
   }
 )
+
+When('I upload two files under separate field names', async function () {
+  const fileBuffer = fs.readFileSync('fixtures/files/test-document.pdf')
+  const formData = new FormData()
+
+  formData.append(
+    'file-upload-1',
+    new Blob([fileBuffer], { type: 'application/pdf' }),
+    'test-document-1.pdf'
+  )
+  formData.append(
+    'file-upload-2',
+    new Blob([fileBuffer], { type: 'application/pdf' }),
+    'test-document-2.pdf'
+  )
+
+  const response = await fetch(this.uploadUrl, {
+    method: 'POST',
+    body: formData,
+    redirect: 'manual'
+  })
+
+  assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
+})
+
+When('I upload two files under the same field name', async function () {
+  const fileBuffer = fs.readFileSync('fixtures/files/test-document.pdf')
+  const formData = new FormData()
+
+  formData.append(
+    'file-upload-1',
+    new Blob([fileBuffer], { type: 'application/pdf' }),
+    'test-document-1.pdf'
+  )
+  formData.append(
+    'file-upload-1',
+    new Blob([fileBuffer], { type: 'application/pdf' }),
+    'test-document-2.pdf'
+  )
+
+  const response = await fetch(this.uploadUrl, {
+    method: 'POST',
+    body: formData,
+    redirect: 'manual'
+  })
+
+  assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
+})
+
+Then('both files should be present in the status response', function () {
+  const form = this.statusResponse.data.form
+
+  // Handle both shapes: separate field names OR array under one field name
+  let fileCount = 0
+  for (const value of Object.values(form)) {
+    if (Array.isArray(value)) {
+      fileCount += value.length
+    } else if (typeof value === 'object' && value.fileId) {
+      fileCount += 1
+    }
+  }
+
+  assert.equal(fileCount, 2, `Expected 2 files in response, got ${fileCount}`)
+})
+
+When('I upload 5 small files under separate field names', async function () {
+  const fileBuffer = fs.readFileSync('fixtures/files/test-document.pdf')
+  const formData = new FormData()
+
+  for (let i = 1; i <= 5; i++) {
+    formData.append(
+      `file-upload-${i}`,
+      new Blob([fileBuffer], { type: 'application/pdf' }),
+      `test-document-${i}.pdf`
+    )
+  }
+
+  const response = await fetch(this.uploadUrl, {
+    method: 'POST',
+    body: formData,
+    redirect: 'manual'
+  })
+
+  assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
+})
+
+Then('all 5 files should be present in the status response', function () {
+  const form = this.statusResponse.data.form
+
+  let fileCount = 0
+  for (const value of Object.values(form)) {
+    if (Array.isArray(value)) {
+      fileCount += value.length
+    } else if (typeof value === 'object' && value.fileId) {
+      fileCount += 1
+    }
+  }
+
+  assert.equal(fileCount, 5, `Expected 5 files in response, got ${fileCount}`)
+})

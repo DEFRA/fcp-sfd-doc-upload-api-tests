@@ -69,4 +69,30 @@ Feature: Full document upload journey
     Given I initiate an upload session with valid metadata
     When I upload a 11 MB file to the CDP Uploader
     And I check the status endpoint for the unsupported upload
-    Then the status response should indicate the unsupported upload was not accepted      
+    Then the status response should indicate the unsupported upload was not accepted
+
+  @multi-file
+  Scenario: Multiple files uploaded under separate field names
+    Given I initiate an upload session with valid metadata
+    When I upload two files under separate field names
+    And I poll the status endpoint until the upload completes
+    Then the upload status should be "success"
+    And both files should be present in the status response
+
+  @multi-file
+  Scenario: Multiple files uploaded under the same field name
+    Given I initiate an upload session with valid metadata
+    When I upload two files under the same field name
+    And I poll the status endpoint until the upload completes
+    Then the upload status should be "success"
+    And both files should be present in the status response  
+
+  # NOTE: this scenario uses 5 small PDF file to minimise data footprint until STUB is plumbed in.
+  # NOTE: currently no limit on number of files per submission, but this may change in future. Update when confirmed. 
+  @multi-file
+  Scenario: Multiple files uploaded in a single submission are all processed
+    Given I initiate an upload session with valid metadata
+    When I upload 5 small files under separate field names
+    And I poll the status endpoint until the upload completes
+    Then the upload status should be "success"
+    And all 5 files should be present in the status response        
