@@ -53,11 +53,13 @@ When(
       })
       const body = await response.json()
 
-      if (body.data.uploadStatus === 'failure') {
-        throw new Error(`Upload ended with status: ${body.data.uploadStatus}`)
-      }
+      // eslint-disable-next-line no-console
+      console.log(
+        `Poll ${attempt + 1}: status ${response.status}, body:`,
+        JSON.stringify(body)
+      )
 
-      if (body.data.uploadStatus !== 'pending') {
+      if (body.data && body.data.uploadStatus !== 'pending') {
         this.statusResponse = body
         return
       }
@@ -140,5 +142,67 @@ Then(
     assert.equal(firstFile.filename, expectedFilename)
 
     this.fileId = firstFile.fileId
+  }
+)
+
+When(
+  'I upload a {string} of type {string} to the CDP Uploader as an unsupported file',
+  async function (filename, contentType) {
+    const fileBuffer = fs.readFileSync(`fixtures/files/${filename}`)
+    const formData = new FormData()
+    formData.append(
+      'file-upload-1',
+      new Blob([fileBuffer], { type: contentType }),
+      filename
+    )
+
+    this.uploadResponse = await fetch(this.uploadUrl, {
+      method: 'POST',
+      body: formData,
+      redirect: 'manual'
+    })
+  }
+)
+
+When(
+  'I check the status endpoint for the unsupported upload',
+  async function () {
+    this.statusResponse = await fetch(`${this.baseUrl}${this.statusUrl}`, {
+      headers: { Authorization: `Bearer ${this.token}` }
+    })
+  }
+)
+
+Then(
+  'the status response should indicate the unsupported upload was not accepted',
+  async function () {
+    assert.equal(
+      this.statusResponse.status,
+      200,
+      `Expected 200, got ${this.statusResponse.status}`
+    )
+    const body = await this.statusResponse.json()
+    assert.equal(
+      body.data.uploadStatus,
+      'failure',
+      `Expected uploadStatus 'failure', got '${body.data.uploadStatus}'`
+    )
+    const form = body.data.form
+    const firstFile = Object.values(form)[0]
+    assert.equal(
+      firstFile.fileStatus,
+      'rejected',
+      `Expected fileStatus 'rejected', got '${firstFile.fileStatus}'`
+    )
+    assert.equal(
+      firstFile.hasError,
+      true,
+      `Expected hasError true on rejected file, got: ${firstFile.hasError}`
+    )
+    assert.ok(
+      firstFile.errorMessage &&
+        firstFile.errorMessage.toLowerCase().includes('must be'),
+      `Expected a meaningful rejection message, got: "${firstFile.errorMessage}"`
+    )
   }
 )
