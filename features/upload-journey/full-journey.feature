@@ -26,7 +26,7 @@ Feature: Full document upload journey
       | DOCX     | test-word.docx        | application/vnd.openxmlformats-officedocument.wordprocessingml.document |
       | XLSX     | test-spreadsheet.xlsx | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet       |   
 
-  @unsupported-file-type @wip
+  @unsupported-file-type
   Scenario Outline: Upload journey rejects unsupported file type <fileType>
     Given I initiate an upload session with valid metadata
     When I upload a "<filename>" of type "<contentType>" to the CDP Uploader as an unsupported file
@@ -38,6 +38,7 @@ Feature: Full document upload journey
       | ZIP        | test-document.zip   | application/zip          |
       | Executable | test-executable.exe | application/x-msdownload |
       | Video      | test-video.mp4      | video/mp4                |
+      | Plain text | test-file.txt       | text/plain               |
 
   @metadata-validation
   Scenario Outline: Initiate rejects <fieldName> outside allowed range
