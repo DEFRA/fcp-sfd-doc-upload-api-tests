@@ -21,6 +21,8 @@ class UploadWorld {
     this.uploadResponse = null
     this.invalidInitiatePayload = null
     this.initiateResponse = null
+    this.blobResponse = null
+    this.specialReference = null
   }
 }
 

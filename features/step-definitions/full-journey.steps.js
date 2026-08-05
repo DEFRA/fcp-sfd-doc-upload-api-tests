@@ -397,3 +397,78 @@ Then('all 5 files should be present in the status response', function () {
 
   assert.equal(fileCount, 5, `Expected 5 files in response, got ${fileCount}`)
 })
+
+When(
+  'I attempt to retrieve a blob for a non-existent fileId',
+  async function () {
+    this.blobResponse = await fetch(
+      `${this.baseUrl}/api/v1/blob/00000000-0000-0000-0000-000000000000`,
+      { headers: { Authorization: `Bearer ${this.token}` } }
+    )
+  }
+)
+
+Then('the blob response status should be {int}', function (expectedStatus) {
+  assert.equal(
+    this.blobResponse.status,
+    expectedStatus,
+    `Expected ${expectedStatus}, got ${this.blobResponse.status}`
+  )
+})
+
+When(
+  'I attempt to check the status for a non-existent uploadId',
+  async function () {
+    this.statusResponse = await fetch(
+      `${this.baseUrl}/api/v1/uploader/status/00000000-0000-0000-0000-000000000000`,
+      { headers: { Authorization: `Bearer ${this.token}` } }
+    )
+  }
+)
+
+Then(
+  'the status response should indicate the upload was not found',
+  function () {
+    // Not-found behaviour could be 404 or a 200 with pending/empty status.
+    // Log what actually comes back and refine.
+    assert.notEqual(
+      this.statusResponse.status,
+      200,
+      `Expected non-200 for non-existent uploadId, got ${this.statusResponse.status}`
+    )
+  }
+)
+
+Given(
+  'I initiate an upload session with a special-character reference',
+  async function () {
+    const payload = buildInitiatePayload()
+    payload.metadata.reference =
+      'Test reference with ünïcodé & special/chars! (2026)'
+    this.specialReference = payload.metadata.reference
+
+    const response = await fetch(`${this.baseUrl}/api/v1/uploader/initiate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    assert.equal(response.status, 200, `Initiate failed: ${response.status}`)
+
+    const body = await response.json()
+    this.uploadId = body.data.uploadId
+    this.uploadUrl = body.data.uploadUrl
+    this.statusUrl = body.data.statusUrl
+  }
+)
+
+Then('the reference should be preserved in the status response', function () {
+  assert.equal(
+    this.statusResponse.data.metadata.reference,
+    this.specialReference,
+    `Expected reference to be preserved, got: ${this.statusResponse.data.metadata.reference}`
+  )
+})

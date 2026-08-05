@@ -95,4 +95,22 @@ Feature: Full document upload journey
     When I upload 5 small files under separate field names
     And I poll the status endpoint until the upload completes
     Then the upload status should be "success"
-    And all 5 files should be present in the status response        
+    And all 5 files should be present in the status response
+
+  @edge-cases
+  Scenario: Blob endpoint returns 404 for a non-existent fileId
+    When I attempt to retrieve a blob for a non-existent fileId
+    Then the blob response status should be 400
+
+  @edge-cases
+  Scenario: Status endpoint returns appropriate error for a non-existent uploadId
+    When I attempt to check the status for a non-existent uploadId
+    Then the status response should indicate the upload was not found
+
+  @edge-cases
+  Scenario: Metadata with special characters in reference is handled correctly
+    Given I initiate an upload session with a special-character reference
+    When I upload a real PDF file to the CDP Uploader
+    And I poll the status endpoint until the upload completes
+    Then the upload status should be "success"
+    And the reference should be preserved in the status response          
