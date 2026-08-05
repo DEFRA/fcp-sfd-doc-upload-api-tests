@@ -206,3 +206,64 @@ Then(
     )
   }
 )
+
+Given(
+  'I have metadata with an invalid {word} of {int}',
+  function (fieldName, invalidValue) {
+    const payload = buildInitiatePayload()
+    payload.metadata[fieldName.toLowerCase()] = invalidValue
+    this.invalidInitiatePayload = payload
+  }
+)
+
+When(
+  'I attempt to initiate an upload session with the invalid metadata',
+  async function () {
+    this.initiateResponse = await fetch(
+      `${this.baseUrl}/api/v1/uploader/initiate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(this.invalidInitiatePayload)
+      }
+    )
+  }
+)
+
+Then(
+  'the initiate response status should be {int}',
+  async function (expectedStatus) {
+    assert.equal(
+      this.initiateResponse.status,
+      expectedStatus,
+      `Expected ${expectedStatus}, got ${this.initiateResponse.status}`
+    )
+    this.initiateResponseBody = await this.initiateResponse.json()
+  }
+)
+
+Then(
+  'the response should indicate the {word} field failed validation',
+  function (fieldName) {
+    assert.equal(
+      this.initiateResponseBody.error,
+      'Bad Request',
+      `Expected 'Bad Request', got '${this.initiateResponseBody.error}'`
+    )
+    assert.ok(
+      this.initiateResponseBody.message
+        .toLowerCase()
+        .includes(fieldName.toLowerCase()),
+      `Expected message to mention '${fieldName}', got: "${this.initiateResponseBody.message}"`
+    )
+    assert.ok(
+      this.initiateResponseBody.validation.keys.includes(
+        `metadata.${fieldName.toLowerCase()}`
+      ),
+      `Expected validation.keys to include 'metadata.${fieldName.toLowerCase()}', got: ${JSON.stringify(this.initiateResponseBody.validation.keys)}`
+    )
+  }
+)

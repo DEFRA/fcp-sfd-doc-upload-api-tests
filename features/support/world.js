@@ -19,6 +19,8 @@ class UploadWorld {
     this.authTestToken = null
     this.authResponse = null
     this.uploadResponse = null
+    this.invalidInitiatePayload = null
+    this.initiateResponse = null
   }
 }
 

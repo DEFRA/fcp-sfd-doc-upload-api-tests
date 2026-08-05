@@ -38,3 +38,19 @@ Feature: Full document upload journey
       | ZIP        | test-document.zip   | application/zip          |
       | Executable | test-executable.exe | application/x-msdownload |
       | Video      | test-video.mp4      | video/mp4                |
+
+  @metadata-validation
+  Scenario Outline: Initiate rejects <fieldName> outside allowed range
+    Given I have metadata with an invalid <fieldName> of <invalidValue>
+    When I attempt to initiate an upload session with the invalid metadata
+    Then the initiate response status should be 400
+    And the response should indicate the <fieldName> field failed validation
+
+    Examples:
+      | fieldName | invalidValue |
+      | SBI       | 99999999     |
+      | SBI       | 1000000000   |
+      | CRN       | 999999999    |
+      | CRN       | 10000000000  |
+      | FRN       | 999999999    |
+      | FRN       | 10000000000  |    
