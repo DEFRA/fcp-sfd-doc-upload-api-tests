@@ -58,6 +58,12 @@ When(
       })
       const body = await response.json()
 
+      // eslint-disable-next-line no-console
+      console.log(
+        `Poll ${attempt + 1}: status ${response.status}, body:`,
+        JSON.stringify(body)
+      )
+
       if (body.data && body.data.uploadStatus !== 'pending') {
         this.statusResponse = body
         return
@@ -174,20 +180,16 @@ When(
 
 Then(
   'the status response should indicate the unsupported upload was not accepted',
-  async function () {
+  function () {
     assert.equal(
-      this.statusResponse.status,
-      200,
-      `Expected 200, got ${this.statusResponse.status}`
-    )
-    const body = await this.statusResponse.json()
-    assert.equal(
-      body.data.uploadStatus,
+      this.statusResponse.data.uploadStatus,
       'failure',
-      `Expected uploadStatus 'failure', got '${body.data.uploadStatus}'`
+      `Expected uploadStatus 'failure', got '${this.statusResponse.data.uploadStatus}'`
     )
-    const form = body.data.form
+
+    const form = this.statusResponse.data.form
     const firstFile = Object.values(form)[0]
+
     assert.equal(
       firstFile.fileStatus,
       'rejected',

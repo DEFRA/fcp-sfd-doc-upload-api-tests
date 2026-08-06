@@ -10,13 +10,14 @@ Feature: Full document upload journey
     And I should be able to retrieve a presigned download URL
     And the file should be downloadable from the presigned URL
 
- @file-types
+ @file-types @mongo-persistence
   Scenario Outline: Upload journey works for supported file type <fileType>
     Given I initiate an upload session with valid metadata
     When I upload a "<filename>" of type "<contentType>" to the CDP Uploader
     And I poll the status endpoint until the upload completes
     Then the upload status should be "success"
     And the response should contain the correct file metadata for "<filename>"
+    And the uploaded file should be retrievable via the SBI metadata endpoint
 
     Examples:
       | fileType | filename              | contentType                                                             |
@@ -24,13 +25,14 @@ Feature: Full document upload journey
       | PNG      | test-image.png        | image/png                                                               |
       | JPG      | test-image.jpg        | image/jpeg                                                              |
       | DOCX     | test-word.docx        | application/vnd.openxmlformats-officedocument.wordprocessingml.document |
-      | XLSX     | test-spreadsheet.xlsx | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet       |   
+      | XLSX     | test-spreadsheet.xlsx | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet       |
+      | TXT      | test-file.txt         | text/plain                                                              |   
 
   @unsupported-file-type
   Scenario Outline: Upload journey rejects unsupported file type <fileType>
     Given I initiate an upload session with valid metadata
     When I upload a "<filename>" of type "<contentType>" to the CDP Uploader as an unsupported file
-    And I check the status endpoint for the unsupported upload
+    And I poll the status endpoint until the upload completes
     Then the status response should indicate the unsupported upload was not accepted
 
     Examples:
@@ -38,7 +40,6 @@ Feature: Full document upload journey
       | ZIP        | test-document.zip   | application/zip          |
       | Executable | test-executable.exe | application/x-msdownload |
       | Video      | test-video.mp4      | video/mp4                |
-      | Plain text | test-file.txt       | text/plain               |
 
   @metadata-validation
   Scenario Outline: Initiate rejects <fieldName> outside allowed range
@@ -115,12 +116,3 @@ Feature: Full document upload journey
     And I poll the status endpoint until the upload completes
     Then the upload status should be "success"
     And the reference should be preserved in the status response
-
-  @mongo-persistence
-  Scenario: Upload metadata is persisted and retrievable via the SBI metadata endpoint
-    Given I initiate an upload session with valid metadata
-    When I upload a real PDF file to the CDP Uploader
-    And I poll the status endpoint until the upload completes
-    Then the upload status should be "success"
-    And the response should contain the correct file metadata
-    And the uploaded file should be retrievable via the SBI metadata endpoint               
