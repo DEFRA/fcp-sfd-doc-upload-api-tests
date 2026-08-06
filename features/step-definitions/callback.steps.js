@@ -114,3 +114,14 @@ Then(
 Then('the callback response should indicate a validation failure', function () {
   assert.notEqual(this.callbackResponseBody.message, 'Metadata created')
 })
+
+Then(
+  'the callback response body should indicate validation failure',
+  function () {
+    assert.equal(
+      this.callbackResponseBody.message,
+      'Validation failure persisted',
+      `Expected 'Validation failure persisted', got '${this.callbackResponseBody.message}'`
+    )
+  }
+)

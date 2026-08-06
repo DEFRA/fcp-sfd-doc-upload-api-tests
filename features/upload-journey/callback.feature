@@ -24,7 +24,8 @@ Feature: Callback endpoint validation
     And the callback response should indicate a validation failure
 
   @callback
-  Scenario: Callback payload with an unexpected extra field returns 422
+  Scenario: Callback payload with an unexpected extra field returns 201 with validation failure
     Given a valid callback payload with an unexpected field added
     When the callback payload is posted to the object processor
-    Then the callback response status should be 422
+    Then the callback response status should be 201
+    And the callback response body should indicate validation failure
