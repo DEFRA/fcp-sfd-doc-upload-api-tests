@@ -2,16 +2,17 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 
-export const createLargeFile = (sizeInMB, filename = 'large-file.pdf') => {
+export const createLargeFile = (
+  sizeInMB,
+  filename = `large-file-${sizeInMB}mb-${Date.now()}.pdf`
+) => {
   const filePath = path.join(os.tmpdir(), filename)
+  const realPdf = fs.readFileSync('fixtures/files/test-document.pdf')
   const sizeInBytes = sizeInMB * 1024 * 1024
 
-  // Create a buffer of the target size filled with zero bytes
   const buffer = Buffer.alloc(sizeInBytes)
-
-  // Give it a valid PDF header so content-type detection doesn't reject it outright
-  const pdfHeader = Buffer.from('%PDF-1.4\n%\x00\x00\x00\x00\n')
-  pdfHeader.copy(buffer, 0)
+  realPdf.copy(buffer, 0)
+  buffer.fill(0x20, realPdf.length)
 
   fs.writeFileSync(filePath, buffer)
   return filePath

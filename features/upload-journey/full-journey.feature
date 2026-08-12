@@ -70,7 +70,7 @@ Feature: Full document upload journey
   Scenario: File just over the per-file size limit is rejected
     Given I initiate an upload session with valid metadata
     When I upload a 11 MB file to the CDP Uploader
-    And I check the status endpoint for the unsupported upload
+    And I poll the status endpoint until the upload completes
     Then the status response should indicate the unsupported upload was not accepted
 
   @multi-file
@@ -100,7 +100,7 @@ Feature: Full document upload journey
     And all 5 files should be present in the status response
 
   @edge-cases
-  Scenario: Blob endpoint returns 404 for a non-existent fileId
+  Scenario: Blob endpoint returns 400 for a non-existent fileId
     When I attempt to retrieve a blob for a non-existent fileId
     Then the blob response status should be 400
 
