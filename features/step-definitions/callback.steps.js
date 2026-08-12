@@ -86,6 +86,42 @@ Then(
   }
 )
 
+Then(
+  'only one record should exist in MongoDB for that fileId',
+  async function () {
+    const sbi = this.callbackPayload.metadata.sbi
+    const fileId = this.callbackPayload.form['file-upload-1'].fileId
+
+    const response = await fetch(`${this.baseUrl}/api/v1/metadata/sbi/${sbi}`, {
+      headers: { Authorization: `Bearer ${this.token}` }
+    })
+
+    assert.equal(response.status, 200, `Expected 200, got ${response.status}`)
+
+    const body = await response.json()
+    const matchingRecords = body.data.filter(
+      (record) => record.file.fileId === fileId
+    )
+
+    assert.equal(
+      matchingRecords.length,
+      1,
+      `Expected exactly 1 record for fileId ${fileId}, got ${matchingRecords.length}`
+    )
+  }
+)
+
 Then('the callback response should indicate a validation failure', function () {
   assert.notEqual(this.callbackResponseBody.message, 'Metadata created')
 })
+
+Then(
+  'the callback response body should indicate validation failure',
+  function () {
+    assert.equal(
+      this.callbackResponseBody.message,
+      'Validation failure persisted',
+      `Expected 'Validation failure persisted', got '${this.callbackResponseBody.message}'`
+    )
+  }
+)

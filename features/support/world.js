@@ -18,6 +18,11 @@ class UploadWorld {
     this.secondCallbackResponseBody = null
     this.authTestToken = null
     this.authResponse = null
+    this.uploadResponse = null
+    this.invalidInitiatePayload = null
+    this.initiateResponse = null
+    this.blobResponse = null
+    this.specialReference = null
   }
 }
 

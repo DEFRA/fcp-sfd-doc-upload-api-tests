@@ -9,7 +9,7 @@
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
   "scripts": {
-    "test": "cucumber-js",
+    "test": "rm -rf allure-results && cucumber-js",
     "test:tag": "cucumber-js --tags",
     "format": "prettier --write 'features/**/*.js' '**/*.{js,md,json}'",
     "format:check": "prettier --check 'features/**/*.js' '**/*.{js,md,json}'",
