@@ -23,6 +23,9 @@ class UploadWorld {
     this.initiateResponse = null
     this.blobResponse = null
     this.specialReference = null
+    this.crmReference = null
+    this.crmCase = null
+    this.crmOnlineSubmissionId = null
   }
 }
 
