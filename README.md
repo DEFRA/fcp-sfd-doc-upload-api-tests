@@ -27,6 +27,31 @@ Run just the full journey:
 
     npm run test:tag "@full-journey"
 
+Run just the CRM case checks:
+
+    npm run test:tag "@crm"
+
+## CRM case scenarios
+
+The `@crm` scenarios check that a submission produces exactly one CRM case,
+with every file in that submission attached to it. They guard the duplicate
+case defect recorded on FLS1-156.
+
+They read from Dataverse directly, so they need the `CRM_*` values in
+`.env.example` to be set, along with `CDP_HTTP_PROXY` and egress to the
+Dataverse host, since Dataverse is external. When those values are absent the
+scenarios skip rather than fail, so the default run is unaffected.
+
+Each run sets its own `QA-FLS1-156-{uuid}` upload reference. The case title is
+built from that reference, which is how a run finds the case it produced and
+no other. Cases created by these runs are left in place for inspection, so
+clear them down periodically.
+
+These scenarios assert the outcome only. They cannot force the timeout that
+triggers the duplicate, which needs a service configuration change and queue
+access this suite does not have. Reproducing the trigger is a manual step,
+documented on FLS1-156.
+
 ## Test structure
 
 - `features/upload-journey/` -- Gherkin feature files describing test scenarios
