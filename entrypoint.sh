@@ -1,7 +1,7 @@
 #!/bin/sh
 
 echo "run_id: $RUN_ID"
-npm test
+npm test || echo "cucumber-js exited with a non-zero status" > FAILED
 
 npm run report:publish
 publish_exit_code=$?
