@@ -1,6 +1,8 @@
 import { Given, When, Then } from '@cucumber/cucumber'
 import { strict as assert } from 'assert'
+import { randomUUID } from 'crypto'
 import { buildCallbackPayload } from '../../fixtures/callback-payload.js'
+import { setPath, deletePath } from '../../fixtures/object-path.js'
 
 Given('a valid callback payload with a single complete file', function () {
   this.callbackPayload = buildCallbackPayload()
@@ -122,6 +124,89 @@ Then(
       this.callbackResponseBody.message,
       'Validation failure persisted',
       `Expected 'Validation failure persisted', got '${this.callbackResponseBody.message}'`
+    )
+  }
+)
+
+Given(
+  'a valid callback payload with {string} set to JSON {string}',
+  function (path, rawValue) {
+    this.callbackPayload = setPath(
+      buildCallbackPayload(),
+      path,
+      JSON.parse(rawValue)
+    )
+  }
+)
+
+Given('a valid callback payload without {string}', function (path) {
+  this.callbackPayload = deletePath(buildCallbackPayload(), path)
+})
+
+Given(
+  'a valid callback payload with two files under the same field name',
+  function () {
+    const payload = buildCallbackPayload()
+    const firstFile = payload.form['file-upload-1']
+    const secondFileId = randomUUID()
+
+    payload.form['file-upload-1'] = [
+      firstFile,
+      {
+        ...firstFile,
+        fileId: secondFileId,
+        filename: 'evidence-2.pdf',
+        s3Key: `scanned/folder/${secondFileId}`
+      }
+    ]
+    this.callbackPayload = payload
+  }
+)
+
+When(
+  'the callback payload is posted to the object processor without an auth token',
+  async function () {
+    this.callbackResponse = await fetch(`${this.baseUrl}/api/v1/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(this.callbackPayload)
+    })
+    this.callbackResponseBody = await this.callbackResponse.json()
+  }
+)
+
+Then(
+  'the callback response should report {int} records created',
+  function (expectedCount) {
+    assert.equal(this.callbackResponseBody.message, 'Metadata created')
+    assert.equal(
+      this.callbackResponseBody.count,
+      expectedCount,
+      `Expected count ${expectedCount}, got ${this.callbackResponseBody.count}`
+    )
+    assert.equal(this.callbackResponseBody.ids.length, expectedCount)
+  }
+)
+
+Then(
+  'the stored metadata for that file should not contain a journeyId',
+  async function () {
+    const sbi = this.callbackPayload.metadata.sbi
+    const fileId = this.callbackPayload.form['file-upload-1'].fileId
+
+    const response = await fetch(`${this.baseUrl}/api/v1/metadata/sbi/${sbi}`, {
+      headers: { Authorization: `Bearer ${this.token}` }
+    })
+
+    assert.equal(response.status, 200, `Expected 200, got ${response.status}`)
+
+    const body = await response.json()
+    const record = body.data.find((item) => item.file.fileId === fileId)
+
+    assert.ok(record, `Expected to find persisted record for fileId ${fileId}`)
+    assert.ok(
+      !('journeyId' in record.metadata),
+      `Expected no journeyId in stored metadata, got: ${JSON.stringify(record.metadata)}`
     )
   }
 )
