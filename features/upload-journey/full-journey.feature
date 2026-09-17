@@ -9,6 +9,7 @@ Feature: Full document upload journey
     And the response should contain the correct file metadata
     And I should be able to retrieve a presigned download URL
     And the file should be downloadable from the presigned URL
+    And the downloaded file should match the uploaded file byte for byte
 
  @file-types @mongo-persistence
   Scenario Outline: Upload journey works for supported file type <fileType>
@@ -26,7 +27,13 @@ Feature: Full document upload journey
       | JPG      | test-image.jpg        | image/jpeg                                                              |
       | DOCX     | test-word.docx        | application/vnd.openxmlformats-officedocument.wordprocessingml.document |
       | XLSX     | test-spreadsheet.xlsx | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet       |
-      | TXT      | test-file.txt         | text/plain                                                              |   
+      | TXT      | test-file.txt         | text/plain                                                              |
+      | GIF      | test-image.gif        | image/gif                                                               |
+      | TIFF     | test-image.tiff       | image/tiff                                                              |
+      | JFIF     | test-image.jfif       | image/jpeg                                                              |
+      | DOC      | test-word.doc         | application/msword                                                      |
+      | ODT      | test-document.odt     | application/vnd.oasis.opendocument.text                                 |
+      | PPTX     | test-presentation.pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |   
 
   @unsupported-file-type
   Scenario Outline: Upload journey rejects unsupported file type <fileType>
@@ -100,14 +107,24 @@ Feature: Full document upload journey
     And all 5 files should be present in the status response
 
   @edge-cases
-  Scenario: Blob endpoint returns 400 for a non-existent fileId
-    When I attempt to retrieve a blob for a non-existent fileId
+  Scenario: Blob endpoint returns 400 for a malformed fileId
+    When I attempt to retrieve a blob for a malformed fileId
     Then the blob response status should be 400
 
   @edge-cases
-  Scenario: Status endpoint returns appropriate error for a non-existent uploadId
-    When I attempt to check the status for a non-existent uploadId
-    Then the status response should indicate the upload was not found
+  Scenario: Blob endpoint returns 404 for an unknown fileId
+    When I attempt to retrieve a blob for an unknown fileId
+    Then the blob response status should be 404
+
+  @edge-cases
+  Scenario: Status endpoint returns 400 for a malformed uploadId
+    When I attempt to check the status for a malformed uploadId
+    Then the status endpoint response status should be 400
+
+  @edge-cases
+  Scenario: Status endpoint returns 404 for an unknown uploadId
+    When I attempt to check the status for an unknown uploadId
+    Then the status endpoint response status should be 404
 
   @edge-cases
   Scenario: Metadata with special characters in reference is handled correctly
@@ -116,3 +133,30 @@ Feature: Full document upload journey
     And I poll the status endpoint until the upload completes
     Then the upload status should be "success"
     And the reference should be preserved in the status response
+
+  @full-journey
+  Scenario: Upload redirects to the redirect path supplied at initiate
+    Given I initiate an upload session with valid metadata
+    When I upload a real PDF file to the CDP Uploader
+    Then the upload response should redirect to the requested redirect path
+
+  @status @journey-id
+  Scenario: Status before any upload is pending and does not expose the journeyId
+    Given I initiate an upload session with valid metadata
+    When I check the upload status before uploading a file
+    Then the upload should be pending at stage "scanning" with no errors
+    And the status response metadata should not contain a journeyId
+
+  @unsupported-file-type
+  Scenario: Executable disguised as a PDF is rejected
+    Given I initiate an upload session with valid metadata
+    When I upload an executable disguised as a PDF to the CDP Uploader
+    And I poll the status endpoint until the upload completes
+    Then the upload should be rejected by the scanner
+
+  @virus-scan
+  Scenario: File containing the EICAR anti-virus test signature is rejected
+    Given I initiate an upload session with valid metadata
+    When I upload the EICAR anti-virus test file to the CDP Uploader
+    And I poll the status endpoint until the upload completes
+    Then the upload should be rejected by the scanner

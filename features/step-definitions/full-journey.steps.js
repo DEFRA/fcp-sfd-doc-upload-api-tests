@@ -1,6 +1,7 @@
 import { Given, When, Then } from '@cucumber/cucumber'
 import { strict as assert } from 'assert'
 import fs from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
 import { buildInitiatePayload } from '../../fixtures/initiate-payload.js'
 
 import {
@@ -44,6 +45,7 @@ When('I upload a real PDF file to the CDP Uploader', async function () {
   })
 
   assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
+  this.uploadResponse = response
 })
 
 When(
@@ -388,15 +390,21 @@ Then('all 5 files should be present in the status response', function () {
   assert.equal(fileCount, 5, `Expected 5 files in response, got ${fileCount}`)
 })
 
-When(
-  'I attempt to retrieve a blob for a non-existent fileId',
-  async function () {
-    this.blobResponse = await fetch(
-      `${this.baseUrl}/api/v1/blob/00000000-0000-0000-0000-000000000000`,
-      { headers: { Authorization: `Bearer ${this.token}` } }
-    )
-  }
-)
+When('I attempt to retrieve a blob for a malformed fileId', async function () {
+  this.blobResponse = await fetch(
+    `${this.baseUrl}/api/v1/blob/00000000-0000-0000-0000-000000000000`,
+    { headers: { Authorization: `Bearer ${this.token}` } }
+  )
+})
+
+When('I attempt to retrieve a blob for an unknown fileId', async function () {
+  this.blobResponse = await fetch(
+    `${this.baseUrl}/api/v1/blob/${randomUUID()}`,
+    {
+      headers: { Authorization: `Bearer ${this.token}` }
+    }
+  )
+})
 
 Then('the blob response status should be {int}', function (expectedStatus) {
   assert.equal(
@@ -407,7 +415,7 @@ Then('the blob response status should be {int}', function (expectedStatus) {
 })
 
 When(
-  'I attempt to check the status for a non-existent uploadId',
+  'I attempt to check the status for a malformed uploadId',
   async function () {
     this.statusResponse = await fetch(
       `${this.baseUrl}/api/v1/uploader/status/00000000-0000-0000-0000-000000000000`,
@@ -416,15 +424,23 @@ When(
   }
 )
 
+When(
+  'I attempt to check the status for an unknown uploadId',
+  async function () {
+    this.statusResponse = await fetch(
+      `${this.baseUrl}/api/v1/uploader/status/${randomUUID()}`,
+      { headers: { Authorization: `Bearer ${this.token}` } }
+    )
+  }
+)
+
 Then(
-  'the status response should indicate the upload was not found',
-  function () {
-    // Not-found behaviour could be 404 or a 200 with pending/empty status.
-    // Log what actually comes back and refine.
-    assert.notEqual(
+  'the status endpoint response status should be {int}',
+  function (expectedStatus) {
+    assert.equal(
       this.statusResponse.status,
-      200,
-      `Expected non-200 for non-existent uploadId, got ${this.statusResponse.status}`
+      expectedStatus,
+      `Expected ${expectedStatus}, got ${this.statusResponse.status}`
     )
   }
 )
@@ -501,3 +517,131 @@ Then(
     )
   }
 )
+
+Then(
+  'the upload response should redirect to the requested redirect path',
+  function () {
+    const { redirect } = buildInitiatePayload()
+    const location = this.uploadResponse.headers.get('location')
+
+    assert.ok(
+      location && location.endsWith(redirect),
+      `Expected Location header to end with '${redirect}', got '${location}'`
+    )
+  }
+)
+
+Then(
+  'the downloaded file should match the uploaded file byte for byte',
+  async function () {
+    const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex')
+    const expected = fs.readFileSync('fixtures/files/test-document.pdf')
+
+    const response = await fetch(this.presignedUrl)
+    assert.equal(response.status, 200)
+    const downloaded = Buffer.from(await response.arrayBuffer())
+
+    assert.equal(
+      downloaded.length,
+      expected.length,
+      `Expected ${expected.length} bytes, got ${downloaded.length}`
+    )
+    assert.equal(sha256(downloaded), sha256(expected))
+  }
+)
+
+When('I check the upload status before uploading a file', async function () {
+  const response = await fetch(`${this.baseUrl}${this.statusUrl}`, {
+    headers: { Authorization: `Bearer ${this.token}` }
+  })
+
+  assert.equal(response.status, 200, `Expected 200, got ${response.status}`)
+  this.statusResponse = await response.json()
+})
+
+Then(
+  'the upload should be pending at stage {string} with no errors',
+  function (expectedStage) {
+    const { uploadStatus, stage, errors } = this.statusResponse.data
+
+    assert.equal(uploadStatus, 'pending')
+    assert.equal(stage, expectedStage)
+    assert.equal(errors, null)
+  }
+)
+
+Then(
+  'the status response metadata should not contain a journeyId',
+  function () {
+    const { metadata } = this.statusResponse.data
+
+    assert.ok(metadata, 'Expected metadata in the status response')
+    assert.ok(
+      !('journeyId' in metadata),
+      `Expected no journeyId in status metadata, got: ${JSON.stringify(metadata)}`
+    )
+  }
+)
+
+When(
+  'I upload an executable disguised as a PDF to the CDP Uploader',
+  async function () {
+    // Minimal DOS header with a PE signature, so content sniffing sees an executable
+    const fileBuffer = Buffer.alloc(1024)
+    fileBuffer.write('MZ', 0, 'ascii')
+    fileBuffer.writeUInt32LE(0x80, 0x3c)
+    fileBuffer.write('PE\0\0', 0x80, 'binary')
+
+    const formData = new FormData()
+    formData.append(
+      'file-upload-1',
+      new Blob([fileBuffer], { type: 'application/pdf' }),
+      'disguised-executable.pdf'
+    )
+
+    this.uploadResponse = await fetch(this.uploadUrl, {
+      method: 'POST',
+      body: formData,
+      redirect: 'manual'
+    })
+  }
+)
+
+When(
+  'I upload the EICAR anti-virus test file to the CDP Uploader',
+  async function () {
+    // Assembled at runtime so the repository never contains the complete signature
+    const eicar = [
+      'X5O!P%@AP[4\\PZX54(P^)7CC)7}$',
+      'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'
+    ].join('')
+
+    const formData = new FormData()
+    formData.append(
+      'file-upload-1',
+      new Blob([eicar], { type: 'text/plain' }),
+      'eicar-test-file.txt'
+    )
+
+    this.uploadResponse = await fetch(this.uploadUrl, {
+      method: 'POST',
+      body: formData,
+      redirect: 'manual'
+    })
+  }
+)
+
+Then('the upload should be rejected by the scanner', function () {
+  const { uploadStatus, stage, errors, form } = this.statusResponse.data
+
+  assert.equal(uploadStatus, 'failure')
+  assert.equal(stage, 'rejected-by-scanner')
+  assert.ok(
+    Array.isArray(errors) && errors.length > 0,
+    `Expected scanner errors, got: ${JSON.stringify(errors)}`
+  )
+
+  const firstFile = Object.values(form)[0]
+  assert.equal(firstFile.fileStatus, 'rejected')
+  assert.equal(firstFile.hasError, true)
+})
