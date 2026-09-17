@@ -6,7 +6,7 @@ Uses Cucumber + Node fetch to drive HTTP-level tests against the object processo
 
 ## Prerequisites
 
-- Node.js >= 22.13.1
+- Node.js >= 22.22.0
 - A `.env` file with the following variables (see `.env.example`):
   - `OBJECT_PROCESSOR_URL` -- base URL for the object processor
   - `COGNITO_TOKEN_URL`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET` -- Cognito OAuth credentials
@@ -33,6 +33,19 @@ Run just the full journey:
 - `features/step-definitions/` -- JavaScript implementations of each step
 - `features/support/` -- Cucumber world and hooks
 - `fixtures/` -- test data, auth helpers, and fixture files
+
+## Running on the CDP Platform
+
+Run the suite from the Test Suites section of the CDP Portal. The portal runs the latest image built by the Publish workflow on `main`.
+
+Configuration is supplied per environment:
+
+- `cdp-app-config` (`services/fcp-sfd-doc-upload-api-tests/`) -- proxy settings in `defaults.env`, and `OBJECT_PROCESSOR_URL`, `COGNITO_TOKEN_URL`, `COGNITO_CLIENT_ID`, `TEST_USER_SBI`, `TEST_USER_CRN`, `TEST_USER_FRN` and `TEST_S3_BUCKET` in each environment file
+- Portal **Secrets** tab for the test suite -- `COGNITO_CLIENT_SECRET`
+
+The Cognito token request leaves the platform, so it goes through the outbound proxy. Node's built-in `fetch` uses the proxy when `NODE_USE_ENV_PROXY=1` is set, which requires Node.js 22.21 or later.
+
+If any scenario fails, `entrypoint.sh` writes a `FAILED` file so the portal reports the run as failed.
 
 ## Reporting
 
