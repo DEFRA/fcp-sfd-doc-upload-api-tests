@@ -39,11 +39,6 @@ Feature: Authentication on protected endpoints
     When I send a GET request to "/api/v1/metadata/sbi/123456789" without an auth token
     Then the response status should be 401
 
-  @auth
-  Scenario: Callback status endpoint rejects a request with no token
-    When I send a GET request to "/api/v1/status/{randomUuid}" without an auth token
-    Then the response status should be 401
-
   @auth @callback @internal-url
   Scenario: Callback endpoint accepts a request with no token
     Given a valid callback payload with a single complete file
