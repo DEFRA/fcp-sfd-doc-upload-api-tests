@@ -3,6 +3,7 @@ import { strict as assert } from 'assert'
 import fs from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { buildInitiatePayload } from '../../fixtures/initiate-payload.js'
+import { getMetadataRecords } from '../../fixtures/metadata-by-sbi.js'
 
 import {
   createLargeFile,
@@ -484,18 +485,15 @@ Then(
   async function () {
     const sbi = process.env.TEST_USER_SBI || process.env.EXT_TEST_TEST_USER_SBI
 
-    const response = await fetch(`${this.baseUrl}/api/v1/metadata/sbi/${sbi}`, {
-      headers: { Authorization: `Bearer ${this.token}` }
+    const isUploadedFile = (record) => record.file.fileId === this.fileId
+    const records = await getMetadataRecords({
+      baseUrl: this.baseUrl,
+      token: this.token,
+      sbi,
+      until: isUploadedFile
     })
 
-    assert.equal(response.status, 200, `Expected 200, got ${response.status}`)
-
-    const body = await response.json()
-    assert.ok(Array.isArray(body.data), 'Expected data to be an array')
-
-    const matchingRecord = body.data.find(
-      (record) => record.file.fileId === this.fileId
-    )
+    const matchingRecord = records.find(isUploadedFile)
     assert.ok(
       matchingRecord,
       `Expected to find persisted record for fileId ${this.fileId}`
