@@ -3,12 +3,16 @@ import { strict as assert } from 'assert'
 // GET /api/v1/metadata/sbi/{sbi} returns one page of records, newest first, with a
 // page object holding hasMore and nextCursor. The test SBI is shared and keeps growing,
 // so a run reads at most this many pages rather than the whole set.
+// When until is given, reading stops after the first page holding a record that matches it.
+// A record written by the test is among the newest, and any duplicate of it is newer still,
+// so that page and the ones before it hold every match.
 const MAX_PAGES = 5
 
 export const getMetadataRecords = async ({
   baseUrl,
   token,
   sbi,
+  until,
   maxPages = MAX_PAGES
 }) => {
   const records = []
@@ -34,10 +38,14 @@ export const getMetadataRecords = async ({
 
     records.push(...body.data)
 
-    if (!body.page.hasMore) {
+    if (!body.page.hasMore || (until && body.data.some(until))) {
       break
     }
 
+    assert.ok(
+      body.page.nextCursor,
+      'Expected page.nextCursor when page.hasMore is true'
+    )
     after = body.page.nextCursor
   }
 

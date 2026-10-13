@@ -485,15 +485,15 @@ Then(
   async function () {
     const sbi = process.env.TEST_USER_SBI || process.env.EXT_TEST_TEST_USER_SBI
 
+    const isUploadedFile = (record) => record.file.fileId === this.fileId
     const records = await getMetadataRecords({
       baseUrl: this.baseUrl,
       token: this.token,
-      sbi
+      sbi,
+      until: isUploadedFile
     })
 
-    const matchingRecord = records.find(
-      (record) => record.file.fileId === this.fileId
-    )
+    const matchingRecord = records.find(isUploadedFile)
     assert.ok(
       matchingRecord,
       `Expected to find persisted record for fileId ${this.fileId}`

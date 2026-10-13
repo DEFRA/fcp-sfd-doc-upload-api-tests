@@ -95,14 +95,14 @@ Then(
     const sbi = this.callbackPayload.metadata.sbi
     const fileId = this.callbackPayload.form['file-upload-1'].fileId
 
+    const isUploadedFile = (record) => record.file.fileId === fileId
     const records = await getMetadataRecords({
       baseUrl: this.baseUrl,
       token: this.token,
-      sbi
+      sbi,
+      until: isUploadedFile
     })
-    const matchingRecords = records.filter(
-      (record) => record.file.fileId === fileId
-    )
+    const matchingRecords = records.filter(isUploadedFile)
 
     assert.equal(
       matchingRecords.length,
@@ -193,12 +193,14 @@ Then(
     const sbi = this.callbackPayload.metadata.sbi
     const fileId = this.callbackPayload.form['file-upload-1'].fileId
 
+    const isUploadedFile = (item) => item.file.fileId === fileId
     const records = await getMetadataRecords({
       baseUrl: this.baseUrl,
       token: this.token,
-      sbi
+      sbi,
+      until: isUploadedFile
     })
-    const record = records.find((item) => item.file.fileId === fileId)
+    const record = records.find(isUploadedFile)
 
     assert.ok(record, `Expected to find persisted record for fileId ${fileId}`)
     assert.ok(
