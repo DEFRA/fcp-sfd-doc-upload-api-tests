@@ -1,3 +1,7 @@
+import { RUN_ID } from './run-id.js'
+
+export const REDIRECT_PATH = '/document-upload/complete'
+
 let counter = 0
 
 export const buildInitiatePayload = () => {
@@ -5,10 +9,10 @@ export const buildInitiatePayload = () => {
   const sbi = Number(process.env.TEST_USER_SBI)
   const crn = Number(process.env.TEST_USER_CRN)
   const frn = Number(process.env.TEST_USER_FRN)
-  const submissionId = `test-${String(counter).padStart(3, '0')}`
+  const submissionId = `test-${RUN_ID}-${String(counter).padStart(3, '0')}`
 
   return {
-    redirect: '/document-upload/complete',
+    redirect: REDIRECT_PATH,
     metadata: {
       sbi,
       crn,

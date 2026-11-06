@@ -1,6 +1,6 @@
 Feature: Full document upload journey
 
-  @full-journey
+  @full-journey @smoke
   Scenario: Upload a real file end to end
     Given I initiate an upload session with valid metadata
     When I upload a real PDF file to the CDP Uploader
@@ -11,7 +11,7 @@ Feature: Full document upload journey
     And the file should be downloadable from the presigned URL
     And the downloaded file should match the uploaded file byte for byte
 
- @file-types @mongo-persistence
+  @file-types @mongo-persistence
   Scenario Outline: Upload journey works for supported file type <fileType>
     Given I initiate an upload session with valid metadata
     When I upload a "<filename>" of type "<contentType>" to the CDP Uploader
@@ -33,7 +33,7 @@ Feature: Full document upload journey
       | JFIF     | test-image.jfif       | image/jpeg                                                              |
       | DOC      | test-word.doc         | application/msword                                                      |
       | ODT      | test-document.odt     | application/vnd.oasis.opendocument.text                                 |
-      | PPTX     | test-presentation.pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |   
+      | PPTX     | test-presentation.pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
 
   @unsupported-file-type
   Scenario Outline: Upload journey rejects unsupported file type <fileType>
@@ -94,10 +94,10 @@ Feature: Full document upload journey
     When I upload two files under the same field name
     And I poll the status endpoint until the upload completes
     Then the upload status should be "success"
-    And both files should be present in the status response  
+    And both files should be present in the status response
 
   # NOTE: this scenario uses 5 small PDF file to minimise data footprint until STUB is plumbed in.
-  # NOTE: currently no limit on number of files per submission, but this may change in future. Update when confirmed. 
+  # NOTE: currently no limit on number of files per submission, but this may change in future. Update when confirmed.
   @multi-file
   Scenario: Multiple files uploaded in a single submission are all processed
     Given I initiate an upload session with valid metadata

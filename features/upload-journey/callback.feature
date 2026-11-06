@@ -1,6 +1,6 @@
 Feature: Callback endpoint validation
 
-  @callback
+  @callback @smoke
   Scenario: Valid callback returns 201 and confirms metadata created
     Given a valid callback payload with a single complete file
     When the callback payload is posted to the object processor
@@ -21,7 +21,7 @@ Feature: Callback endpoint validation
     Given a callback payload with the sbi field missing
     When the callback payload is posted to the object processor
     Then the callback response status should be 201
-    And the callback response should indicate a validation failure
+    And the callback response body should indicate validation failure
 
   @callback
   Scenario: Callback payload with an unexpected extra field returns 201 with validation failure

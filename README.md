@@ -12,6 +12,9 @@ Uses Cucumber + Node fetch to drive HTTP-level tests against the object processo
   - `COGNITO_TOKEN_URL`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET` -- Cognito OAuth credentials
   - `TEST_USER_SBI`, `TEST_USER_CRN`, `TEST_USER_FRN` -- real user identity in Dynamics 365 test instance
   - `TEST_S3_BUCKET` -- environment-specific S3 bucket name
+  - Optional: `COGNITO_SCOPE`, `REQUEST_TIMEOUT_MS` (default 30000), `POLL_INTERVAL_MS` (default 500) and `POLL_TIMEOUT_MS` (default 20000)
+
+The run stops before any scenario starts if a required variable is missing, and lists every missing one.
 
 ## Running the tests
 
@@ -22,6 +25,20 @@ Install dependencies:
 Run all tests:
 
     npm test
+
+Check that every step in the feature files has a definition, without calling any service:
+
+    npm run test:dry
+
+Run the smoke scenarios (a handful covering health, auth, callback and the full journey):
+
+    npm run test:smoke
+
+Run scenarios in parallel (experimental):
+
+    npm run test:parallel
+
+The parallel run has only been checked against a local stand-in service. Scenarios share one test SBI, so confirm it is stable against a real environment before relying on it.
 
 Run just the full journey:
 
@@ -58,6 +75,12 @@ documented on FLS1-156.
 - `features/step-definitions/` -- JavaScript implementations of each step
 - `features/support/` -- Cucumber world and hooks
 - `fixtures/` -- test data, auth helpers, and fixture files
+  - `auth.js` -- Cognito token, fetched once per run and refreshed 60 seconds before it expires
+  - `api-client.js` -- `fetch` wrappers with a request timeout and the Bearer header
+  - `uploader.js` -- initiate, multipart upload and status polling helpers
+  - `run-id.js` -- a short id added to test data so each run's records can be told apart
+
+Status polling fails straight away on a 4xx, retries a 5xx, and reports the last response if the upload never completes.
 
 ## Running on the CDP Platform
 

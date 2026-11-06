@@ -4,6 +4,10 @@ import { randomUUID } from 'crypto'
 import { buildCallbackPayload } from '../../fixtures/callback-payload.js'
 import { setPath, deletePath } from '../../fixtures/object-path.js'
 import { getMetadataRecords } from '../../fixtures/metadata-by-sbi.js'
+import {
+  apiRequest,
+  unauthenticatedRequest
+} from '../../fixtures/api-client.js'
 
 Given('a valid callback payload with a single complete file', function () {
   this.callbackPayload = buildCallbackPayload()
@@ -24,26 +28,18 @@ Given('a valid callback payload with an unexpected field added', function () {
 When(
   'the callback payload is posted to the object processor',
   async function () {
-    this.callbackResponse = await fetch(`${this.baseUrl}/api/v1/callback`, {
+    this.callbackResponse = await apiRequest(this, '/api/v1/callback', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.token}`
-      },
-      body: JSON.stringify(this.callbackPayload)
+      json: this.callbackPayload
     })
     this.callbackResponseBody = await this.callbackResponse.json()
   }
 )
 
 When('the same callback payload is posted again', async function () {
-  this.secondCallbackResponse = await fetch(`${this.baseUrl}/api/v1/callback`, {
+  this.secondCallbackResponse = await apiRequest(this, '/api/v1/callback', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.token}`
-    },
-    body: JSON.stringify(this.callbackPayload)
+    json: this.callbackPayload
   })
   this.secondCallbackResponseBody = await this.secondCallbackResponse.json()
 })
@@ -112,10 +108,6 @@ Then(
   }
 )
 
-Then('the callback response should indicate a validation failure', function () {
-  assert.notEqual(this.callbackResponseBody.message, 'Metadata created')
-})
-
 Then(
   'the callback response body should indicate validation failure',
   function () {
@@ -165,11 +157,11 @@ Given(
 When(
   'the callback payload is posted to the object processor without an auth token',
   async function () {
-    this.callbackResponse = await fetch(`${this.baseUrl}/api/v1/callback`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(this.callbackPayload)
-    })
+    this.callbackResponse = await unauthenticatedRequest(
+      this,
+      '/api/v1/callback',
+      { method: 'POST', json: this.callbackPayload }
+    )
     this.callbackResponseBody = await this.callbackResponse.json()
   }
 )

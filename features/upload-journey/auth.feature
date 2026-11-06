@@ -1,6 +1,6 @@
 Feature: Authentication on protected endpoints
 
-  @auth
+  @auth @smoke
   Scenario: Initiate rejects a request with no token
     Given I have no auth token
     When I attempt to initiate an upload session

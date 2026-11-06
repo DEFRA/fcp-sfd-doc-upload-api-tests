@@ -10,6 +10,8 @@ class UploadWorld {
     this.statusUrl = null
     this.fileId = null
     this.statusResponse = null
+    this.statusBody = null
+    this.uploadedFilenames = null
     this.presignedUrl = null
     this.callbackPayload = null
     this.callbackResponse = null
