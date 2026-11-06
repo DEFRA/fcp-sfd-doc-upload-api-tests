@@ -1,7 +1,7 @@
 import { Given, Then } from '@cucumber/cucumber'
 import { strict as assert } from 'assert'
 import { randomUUID } from 'node:crypto'
-import { buildInitiatePayload } from '../../fixtures/initiate-payload.js'
+import { initiateUpload, listFiles } from '../../fixtures/uploader.js'
 import {
   isCrmConfigured,
   waitForCases,
@@ -62,29 +62,14 @@ Given('read-only CRM access is configured', function () {
 Given(
   'I initiate an upload session with a unique CRM test reference',
   async function () {
-    const payload = buildInitiatePayload()
-
     // fcp-sfd-object-processor builds the CRM case title as
     // "{reference} - CRN {crn} - {date}", so a unique reference is what lets
     // this run find its own case, and only its own case.
     this.crmReference = `QA-FLS1-156-${randomUUID()}`
-    payload.metadata.reference = this.crmReference
 
-    const response = await fetch(`${this.baseUrl}/api/v1/uploader/initiate`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+    await initiateUpload(this, (payload) => {
+      payload.metadata.reference = this.crmReference
     })
-
-    assert.equal(response.status, 200, `Initiate failed: ${response.status}`)
-
-    const body = await response.json()
-    this.uploadId = body.data.uploadId
-    this.uploadUrl = body.data.uploadUrl
-    this.statusUrl = body.data.statusUrl
   }
 )
 
@@ -141,7 +126,7 @@ Then(
     )
 
     const onlineSubmissionId = submissions[0].activityid
-    const files = Object.values(this.statusResponse.data.form)
+    const files = listFiles(this.statusBody.data.form)
 
     assert.ok(files.length > 1, 'Expected more than one uploaded file')
 

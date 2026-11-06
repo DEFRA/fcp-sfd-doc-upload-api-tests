@@ -1,17 +1,19 @@
 import { When, Then } from '@cucumber/cucumber'
 import { strict as assert } from 'assert'
+import {
+  apiRequest,
+  unauthenticatedRequest
+} from '../../fixtures/api-client.js'
 
 When('I send a GET request to {string}', async function (path) {
-  this.response = await fetch(`${this.baseUrl}${path}`, {
-    headers: { Authorization: `Bearer ${this.token}` }
-  })
+  this.response = await apiRequest(this, path)
   this.responseBody = await this.response.json().catch(() => null)
 })
 
 When(
   'I send a GET request to {string} without an auth token',
   async function (path) {
-    this.response = await fetch(`${this.baseUrl}${path}`)
+    this.response = await unauthenticatedRequest(this, path)
     this.responseBody = await this.response.json().catch(() => null)
   }
 )

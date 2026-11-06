@@ -1,6 +1,7 @@
 import { Given, When, Then } from '@cucumber/cucumber'
 import { strict as assert } from 'assert'
 import { buildInitiatePayload } from '../../fixtures/initiate-payload.js'
+import { unauthenticatedRequest } from '../../fixtures/api-client.js'
 import { setPath, deletePath } from '../../fixtures/object-path.js'
 
 const UUID_V4 =
@@ -21,21 +22,18 @@ Given('an initiate payload without {string}', function (path) {
   this.invalidInitiatePayload = deletePath(buildInitiatePayload(), path)
 })
 
-const postInitiateWithAuthorization = (baseUrl, authorizationHeader) =>
-  fetch(`${baseUrl}/api/v1/uploader/initiate`, {
+const postInitiateWithAuthorization = (world, authorizationHeader) =>
+  unauthenticatedRequest(world, '/api/v1/uploader/initiate', {
     method: 'POST',
-    headers: {
-      Authorization: authorizationHeader,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(buildInitiatePayload())
+    headers: { Authorization: authorizationHeader },
+    json: buildInitiatePayload()
   })
 
 When(
   'I attempt to initiate an upload session with the Authorization header {string}',
   async function (authorizationHeader) {
     this.authResponse = await postInitiateWithAuthorization(
-      this.baseUrl,
+      this,
       authorizationHeader
     )
   }
@@ -48,7 +46,7 @@ When(
       'base64'
     )
     this.authResponse = await postInitiateWithAuthorization(
-      this.baseUrl,
+      this,
       `Basic ${credentials}`
     )
   }
