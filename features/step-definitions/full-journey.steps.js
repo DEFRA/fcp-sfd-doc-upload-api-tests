@@ -370,6 +370,7 @@ Then(
     const records = await getMetadataRecords({
       baseUrl: this.baseUrl,
       token: this.token,
+      traceId: this.traceId,
       sbi: process.env.TEST_USER_SBI,
       until: isUploadedFile
     })

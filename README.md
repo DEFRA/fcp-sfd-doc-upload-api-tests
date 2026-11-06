@@ -103,6 +103,14 @@ Allure reports are generated after each run:
 
 Report opens as a single HTML file in `allure-report/`.
 
+### Finding a failed scenario in the service logs
+
+Each scenario gets a trace id (`qa-<run id>-<8 characters>`) and sends it as the `x-cdp-request-id` header on every call to the object processor. The object processor logs that value as `trace.id`. Set `TRACING_HEADER` if the service uses a different header name.
+
+When a scenario fails, its name, trace id and any `uploadId`, `fileId` and `reference` are printed to the run log and attached to the Allure report. Search the service logs for `trace.id`, or for the `uploadId`.
+
+The header is not sent to CDP Uploader, S3 or Cognito. It has been checked against the object processor source and a local mock, but not against a deployed environment, so confirm once that `trace.id` shows the test's value in the CDP logs.
+
 ## Pre-commit hook
 
 A [Husky](https://typicode.github.io/husky/) pre-commit hook runs [`sfd-id-check`](https://github.com/DEFRA/fcp-sfd-core/tree/main/scripts/check-synthetic-ids), which blocks commits that add real-looking CRNs or SBIs. Pull requests run the same check.

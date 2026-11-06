@@ -1,5 +1,5 @@
 import { strict as assert } from 'assert'
-import { bearer, request } from './api-client.js'
+import { bearer, request, traceHeaders } from './api-client.js'
 
 // GET /api/v1/metadata/sbi/{sbi} returns one page of records, newest first, with a
 // page object holding hasMore and nextCursor. The test SBI is shared and keeps growing,
@@ -12,6 +12,7 @@ const MAX_PAGES = 5
 export const getMetadataRecords = async ({
   baseUrl,
   token,
+  traceId,
   sbi,
   until,
   maxPages = MAX_PAGES
@@ -22,7 +23,9 @@ export const getMetadataRecords = async ({
   for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
     const query = after ? `?after=${after}` : ''
     const url = `${baseUrl}/api/v1/metadata/sbi/${sbi}${query}`
-    const response = await request(url, { headers: bearer(token) })
+    const response = await request(url, {
+      headers: { ...bearer(token), ...traceHeaders(traceId) }
+    })
 
     assert.equal(response.status, 200, `Expected 200, got ${response.status}`)
 

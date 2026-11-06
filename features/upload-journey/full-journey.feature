@@ -64,17 +64,18 @@ Feature: Full document upload journey
       | FRN       | 999999999    |
       | FRN       | 10000000000  |
 
-  # NOTE: current CDP Uploader limit in ext-test is 10.49MB. Waiting on dev
-  # to confirm intended limits. Update when confirmed.
+  # ext-test sets CDP_UPLOADER_MAX_FILE_SIZE=10485760 (10 MiB) in cdp-app-config, and CDP Uploader
+  # rejects a file only when its size is greater than the limit. So 10 MB (10 MiB) sits exactly
+  # on the limit and is accepted, and 11 MB is rejected. Other environments are unchecked.
   @file-size-boundaries
-  Scenario: File just under the per-file size limit is accepted
+  Scenario: File exactly at the 10 MB per-file size limit is accepted
     Given I initiate an upload session with valid metadata
     When I upload a 10 MB file to the CDP Uploader
     And I poll the status endpoint until the upload completes
     Then the upload status should be "success"
 
   @file-size-boundaries
-  Scenario: File just over the per-file size limit is rejected
+  Scenario: File over the 10 MB per-file size limit is rejected
     Given I initiate an upload session with valid metadata
     When I upload a 11 MB file to the CDP Uploader
     And I poll the status endpoint until the upload completes

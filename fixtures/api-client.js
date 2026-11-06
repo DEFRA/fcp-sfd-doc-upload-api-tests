@@ -7,6 +7,13 @@ export const request = (
   { timeoutMs = DEFAULT_TIMEOUT_MS, ...options } = {}
 ) => fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs) })
 
+// CDP's tracing plugin logs this header's value as trace.id on every log line for the call,
+// so a failed scenario can be found in the service logs. The service rejects values over 50 characters.
+export const TRACE_HEADER = process.env.TRACING_HEADER || 'x-cdp-request-id'
+
+export const traceHeaders = (traceId) =>
+  traceId ? { [TRACE_HEADER]: traceId } : {}
+
 export const bearer = (token) => ({ Authorization: `Bearer ${token}` })
 
 // Calls the object processor as the scenario's authenticated client. Pass
@@ -20,6 +27,7 @@ export const apiRequest = (
     ...options,
     headers: {
       ...bearer(world.token),
+      ...traceHeaders(world.traceId),
       ...(json === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...headers
     },
@@ -35,6 +43,7 @@ export const unauthenticatedRequest = (
   request(`${world.baseUrl}${path}`, {
     ...options,
     headers: {
+      ...traceHeaders(world.traceId),
       ...(json === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...headers
     },

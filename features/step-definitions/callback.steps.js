@@ -95,6 +95,7 @@ Then(
     const records = await getMetadataRecords({
       baseUrl: this.baseUrl,
       token: this.token,
+      traceId: this.traceId,
       sbi,
       until: isUploadedFile
     })
@@ -189,6 +190,7 @@ Then(
     const records = await getMetadataRecords({
       baseUrl: this.baseUrl,
       token: this.token,
+      traceId: this.traceId,
       sbi,
       until: isUploadedFile
     })
