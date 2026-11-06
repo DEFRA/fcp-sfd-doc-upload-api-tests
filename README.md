@@ -16,6 +16,8 @@ Uses Cucumber + Node fetch to drive HTTP-level tests against the object processo
 
 The run stops before any scenario starts if a required variable is missing, and lists every missing one.
 
+To run locally against `test`, use the `api` host for `OBJECT_PROCESSOR_URL` (the internal host is only reachable from the platform). On a network that intercepts TLS, Node fails with `unable to get local issuer certificate`; set `NODE_USE_SYSTEM_CA=1` to use the operating system's certificates. Scenarios tagged `@internal-url` and `@crm` cannot run from a laptop.
+
 ## Running the tests
 
 Install dependencies:
@@ -38,7 +40,7 @@ Run scenarios in parallel (experimental):
 
     npm run test:parallel
 
-The parallel run has only been checked against a local stand-in service. Scenarios share one test SBI, so confirm it is stable against a real environment before relying on it.
+The parallel run (4 workers) has passed against the CDP `test` environment. Scenarios share one test SBI, so keep an eye on it if the suite grows.
 
 Run just the full journey:
 
@@ -109,7 +111,7 @@ Each scenario gets a trace id (`qa-<run id>-<8 characters>`) and sends it as the
 
 When a scenario fails, its name, trace id and any `uploadId`, `fileId` and `reference` are printed to the run log and attached to the Allure report. Search the service logs for `trace.id`, or for the `uploadId`.
 
-The header is not sent to CDP Uploader, S3 or Cognito. It has been checked against the object processor source and a local mock, but not against a deployed environment, so confirm once that `trace.id` shows the test's value in the CDP logs.
+The header is not sent to CDP Uploader, S3 or Cognito. In the CDP `test` logs (OpenSearch, `trace.id: "<id>"`) the object processor and `fcp-audit` both record the test's value, so CDP ingress does not overwrite it.
 
 ## Pre-commit hook
 
