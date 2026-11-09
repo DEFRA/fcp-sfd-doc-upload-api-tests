@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { randomUUID } from 'crypto'
+import { RUN_ID } from './run-id.js'
 
 let counter = 0
 
@@ -10,7 +11,7 @@ export const buildCallbackPayload = () => {
   const sbi = Number(process.env.TEST_USER_SBI)
   const crn = Number(process.env.TEST_USER_CRN)
   const frn = Number(process.env.TEST_USER_FRN)
-  const reference = `TEST-REF-${String(counter).padStart(3, '0')}`
+  const reference = `TEST-REF-${RUN_ID}-${String(counter).padStart(3, '0')}`
 
   return {
     uploadStatus: 'ready',

@@ -9,10 +9,14 @@
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
   "scripts": {
-    "test": "rm -rf allure-results && cucumber-js",
+    "clean": "node -e \"require('fs').rmSync('allure-results', { recursive: true, force: true })\"",
+    "test": "npm run clean && cucumber-js",
     "test:tag": "cucumber-js --tags",
-    "format": "prettier --write 'features/**/*.js' '**/*.{js,md,json}'",
-    "format:check": "prettier --check 'features/**/*.js' '**/*.{js,md,json}'",
+    "test:dry": "cucumber-js --dry-run",
+    "test:smoke": "cucumber-js --tags @smoke",
+    "test:parallel": "npm run clean && cucumber-js --parallel 4",
+    "format": "prettier --write \"**/*.{js,md,json}\"",
+    "format:check": "prettier --check \"**/*.{js,md,json}\"",
     "git:pre-commit-hook": "npm run format:check && npm run lint",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -27,8 +31,7 @@
     "allure-commandline": "2.32.0",
     "allure-cucumberjs": "3.0.0",
     "dotenv": "17.4.2",
-    "global-agent": "3.0.0",
-    "undici": "7.28.0"
+    "undici": "7.30.2"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

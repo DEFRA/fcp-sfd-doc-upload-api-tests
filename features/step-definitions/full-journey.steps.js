@@ -1,99 +1,92 @@
 import { Given, When, Then } from '@cucumber/cucumber'
 import { strict as assert } from 'assert'
-import fs from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
-import { buildInitiatePayload } from '../../fixtures/initiate-payload.js'
-import { getMetadataRecords } from '../../fixtures/metadata-by-sbi.js'
-
 import {
-  createLargeFile,
-  cleanupLargeFile
-} from '../../fixtures/large-file-helper.js'
+  REDIRECT_PATH,
+  buildInitiatePayload
+} from '../../fixtures/initiate-payload.js'
+import { getMetadataRecords } from '../../fixtures/metadata-by-sbi.js'
+import { apiRequest, request } from '../../fixtures/api-client.js'
+import {
+  buildLargeFile,
+  expectRedirect,
+  initiateUpload,
+  listFiles,
+  pollUntilComplete,
+  postFiles,
+  readFixture
+} from '../../fixtures/uploader.js'
+
+const MALFORMED_ID = '00000000-0000-0000-0000-000000000000'
+
+const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex')
+
+const uploadedFiles = (world) => listFiles(world.statusBody.data.form)
+
+const assertFilesPresent = (world, expectedFilenames) => {
+  const files = uploadedFiles(world)
+
+  assert.equal(
+    files.length,
+    expectedFilenames.length,
+    `Expected ${expectedFilenames.length} files in response, got ${files.length}`
+  )
+  assert.deepEqual(
+    files.map((file) => file.filename).sort(),
+    [...expectedFilenames].sort()
+  )
+  assert.equal(
+    new Set(files.map((file) => file.fileId)).size,
+    files.length,
+    'Expected every file to have its own fileId'
+  )
+}
+
+const assertFileMetadata = (world, expectedFilename) => {
+  const [firstFile] = uploadedFiles(world)
+
+  assert.ok(firstFile.fileId, 'Expected a fileId')
+  assert.ok(firstFile.checksumSha256, 'Expected a checksum')
+  assert.equal(firstFile.filename, expectedFilename)
+
+  world.fileId = firstFile.fileId
+}
 
 Given('I initiate an upload session with valid metadata', async function () {
-  const payload = buildInitiatePayload()
-
-  const response = await fetch(`${this.baseUrl}/api/v1/uploader/initiate`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${this.token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  })
-
-  assert.equal(response.status, 200, `Initiate failed: ${response.status}`)
-
-  const body = await response.json()
-  this.uploadId = body.data.uploadId
-  this.uploadUrl = body.data.uploadUrl
-  this.statusUrl = body.data.statusUrl
+  await initiateUpload(this)
 })
 
 When('I upload a real PDF file to the CDP Uploader', async function () {
-  const fileBuffer = fs.readFileSync('fixtures/files/test-document.pdf')
-  const formData = new FormData()
-  formData.append(
-    'file-upload-1',
-    new Blob([fileBuffer], { type: 'application/pdf' }),
-    'test-document.pdf'
-  )
+  this.uploadResponse = await postFiles(this, [
+    {
+      filename: 'test-document.pdf',
+      content: readFixture('test-document.pdf'),
+      type: 'application/pdf'
+    }
+  ])
 
-  const response = await fetch(this.uploadUrl, {
-    method: 'POST',
-    body: formData,
-    redirect: 'manual'
-  })
-
-  assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
-  this.uploadResponse = response
+  expectRedirect(this.uploadResponse)
 })
 
 When(
   'I poll the status endpoint until the upload completes',
   async function () {
-    const maxAttempts = 20
-    const delayMs = 1000
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const response = await fetch(`${this.baseUrl}${this.statusUrl}`, {
-        headers: { Authorization: `Bearer ${this.token}` }
-      })
-      const body = await response.json()
-
-      if (body.data && body.data.uploadStatus !== 'pending') {
-        this.statusResponse = body
-        return
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
-    }
-
-    throw new Error('Upload did not complete within timeout')
+    this.statusBody = await pollUntilComplete(this)
   }
 )
 
 Then('the upload status should be {string}', function (expectedStatus) {
-  assert.equal(this.statusResponse.data.uploadStatus, expectedStatus)
+  assert.equal(this.statusBody.data.uploadStatus, expectedStatus)
 })
 
 Then('the response should contain the correct file metadata', function () {
-  const form = this.statusResponse.data.form
-  const firstFile = Object.values(form)[0]
-
-  assert.ok(firstFile.fileId, 'Expected a fileId')
-  assert.ok(firstFile.checksumSha256, 'Expected a checksum')
-  assert.equal(firstFile.filename, 'test-document.pdf')
-
-  this.fileId = firstFile.fileId
+  assertFileMetadata(this, 'test-document.pdf')
 })
 
 Then(
   'I should be able to retrieve a presigned download URL',
   async function () {
-    const response = await fetch(`${this.baseUrl}/api/v1/blob/${this.fileId}`, {
-      headers: { Authorization: `Bearer ${this.token}` }
-    })
+    const response = await apiRequest(this, `/api/v1/blob/${this.fileId}`)
 
     assert.equal(response.status, 200)
 
@@ -106,7 +99,7 @@ Then(
 Then(
   'the file should be downloadable from the presigned URL',
   async function () {
-    const response = await fetch(this.presignedUrl)
+    const response = await request(this.presignedUrl)
     assert.equal(response.status, 200)
     assert.equal(response.headers.get('content-type'), 'application/pdf')
   }
@@ -115,77 +108,42 @@ Then(
 When(
   'I upload a {string} of type {string} to the CDP Uploader',
   async function (filename, contentType) {
-    const fileBuffer = fs.readFileSync(`fixtures/files/${filename}`)
-    const formData = new FormData()
-    formData.append(
-      'file-upload-1',
-      new Blob([fileBuffer], { type: contentType }),
-      filename
-    )
+    const response = await postFiles(this, [
+      { filename, content: readFixture(filename), type: contentType }
+    ])
 
-    const response = await fetch(this.uploadUrl, {
-      method: 'POST',
-      body: formData,
-      redirect: 'manual'
-    })
-
-    assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
+    expectRedirect(response)
   }
 )
 
 Then(
   'the response should contain the correct file metadata for {string}',
   function (expectedFilename) {
-    const form = this.statusResponse.data.form
-    const firstFile = Object.values(form)[0]
-
-    assert.ok(firstFile.fileId, 'Expected a fileId')
-    assert.ok(firstFile.checksumSha256, 'Expected a checksum')
-    assert.equal(firstFile.filename, expectedFilename)
-
-    this.fileId = firstFile.fileId
+    assertFileMetadata(this, expectedFilename)
   }
 )
 
 When(
   'I upload a {string} of type {string} to the CDP Uploader as an unsupported file',
   async function (filename, contentType) {
-    const fileBuffer = fs.readFileSync(`fixtures/files/${filename}`)
-    const formData = new FormData()
-    formData.append(
-      'file-upload-1',
-      new Blob([fileBuffer], { type: contentType }),
-      filename
-    )
-
-    this.uploadResponse = await fetch(this.uploadUrl, {
-      method: 'POST',
-      body: formData,
-      redirect: 'manual'
-    })
-  }
-)
-
-When(
-  'I check the status endpoint for the unsupported upload',
-  async function () {
-    this.statusResponse = await fetch(`${this.baseUrl}${this.statusUrl}`, {
-      headers: { Authorization: `Bearer ${this.token}` }
-    })
+    this.uploadResponse = await postFiles(this, [
+      { filename, content: readFixture(filename), type: contentType }
+    ])
   }
 )
 
 Then(
   'the status response should indicate the unsupported upload was not accepted',
   function () {
+    const { uploadStatus, form } = this.statusBody.data
+
     assert.equal(
-      this.statusResponse.data.uploadStatus,
+      uploadStatus,
       'failure',
-      `Expected uploadStatus 'failure', got '${this.statusResponse.data.uploadStatus}'`
+      `Expected uploadStatus 'failure', got '${uploadStatus}'`
     )
 
-    const form = this.statusResponse.data.form
-    const firstFile = Object.values(form)[0]
+    const [firstFile] = listFiles(form)
 
     assert.equal(
       firstFile.fileStatus,
@@ -217,15 +175,12 @@ Given(
 When(
   'I attempt to initiate an upload session with the invalid metadata',
   async function () {
-    this.initiateResponse = await fetch(
-      `${this.baseUrl}/api/v1/uploader/initiate`,
+    this.initiateResponse = await apiRequest(
+      this,
+      '/api/v1/uploader/initiate',
       {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(this.invalidInitiatePayload)
+        json: this.invalidInitiatePayload
       }
     )
   }
@@ -270,141 +225,83 @@ When(
   'I upload a {int} MB file to the CDP Uploader',
   { timeout: 120 * 1000 },
   async function (sizeInMB) {
-    const filePath = createLargeFile(sizeInMB)
-    const fileBuffer = fs.readFileSync(filePath)
-
-    const formData = new FormData()
-    formData.append(
-      'file-upload-1',
-      new Blob([fileBuffer], { type: 'application/pdf' }),
-      `large-file-${sizeInMB}mb.pdf`
+    this.uploadResponse = await postFiles(
+      this,
+      [
+        {
+          filename: `large-file-${sizeInMB}mb.pdf`,
+          content: buildLargeFile(sizeInMB),
+          type: 'application/pdf'
+        }
+      ],
+      { timeoutMs: 110 * 1000 }
     )
-
-    this.uploadResponse = await fetch(this.uploadUrl, {
-      method: 'POST',
-      body: formData,
-      redirect: 'manual'
-    })
-
-    // Cleanup so we don't fill tmp with junk
-    cleanupLargeFile(filePath)
   }
 )
 
 When('I upload two files under separate field names', async function () {
-  const fileBuffer = fs.readFileSync('fixtures/files/test-document.pdf')
-  const formData = new FormData()
+  const content = readFixture('test-document.pdf')
+  this.uploadedFilenames = ['test-document-1.pdf', 'test-document-2.pdf']
 
-  formData.append(
-    'file-upload-1',
-    new Blob([fileBuffer], { type: 'application/pdf' }),
-    'test-document-1.pdf'
+  expectRedirect(
+    await postFiles(
+      this,
+      this.uploadedFilenames.map((filename) => ({
+        filename,
+        content,
+        type: 'application/pdf'
+      }))
+    )
   )
-  formData.append(
-    'file-upload-2',
-    new Blob([fileBuffer], { type: 'application/pdf' }),
-    'test-document-2.pdf'
-  )
-
-  const response = await fetch(this.uploadUrl, {
-    method: 'POST',
-    body: formData,
-    redirect: 'manual'
-  })
-
-  assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
 })
 
 When('I upload two files under the same field name', async function () {
-  const fileBuffer = fs.readFileSync('fixtures/files/test-document.pdf')
-  const formData = new FormData()
+  const content = readFixture('test-document.pdf')
+  this.uploadedFilenames = ['test-document-1.pdf', 'test-document-2.pdf']
 
-  formData.append(
-    'file-upload-1',
-    new Blob([fileBuffer], { type: 'application/pdf' }),
-    'test-document-1.pdf'
+  expectRedirect(
+    await postFiles(
+      this,
+      this.uploadedFilenames.map((filename) => ({
+        field: 'file-upload-1',
+        filename,
+        content,
+        type: 'application/pdf'
+      }))
+    )
   )
-  formData.append(
-    'file-upload-1',
-    new Blob([fileBuffer], { type: 'application/pdf' }),
-    'test-document-2.pdf'
-  )
-
-  const response = await fetch(this.uploadUrl, {
-    method: 'POST',
-    body: formData,
-    redirect: 'manual'
-  })
-
-  assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
 })
 
 Then('both files should be present in the status response', function () {
-  const form = this.statusResponse.data.form
-
-  // Handle both shapes: separate field names OR array under one field name
-  let fileCount = 0
-  for (const value of Object.values(form)) {
-    if (Array.isArray(value)) {
-      fileCount += value.length
-    } else if (typeof value === 'object' && value.fileId) {
-      fileCount += 1
-    }
-  }
-
-  assert.equal(fileCount, 2, `Expected 2 files in response, got ${fileCount}`)
+  assertFilesPresent(this, this.uploadedFilenames)
 })
 
 When('I upload 5 small files under separate field names', async function () {
-  const fileBuffer = fs.readFileSync('fixtures/files/test-document.pdf')
-  const formData = new FormData()
+  const content = readFixture('test-document.pdf')
+  this.uploadedFilenames = [1, 2, 3, 4, 5].map((n) => `test-document-${n}.pdf`)
 
-  for (let i = 1; i <= 5; i++) {
-    formData.append(
-      `file-upload-${i}`,
-      new Blob([fileBuffer], { type: 'application/pdf' }),
-      `test-document-${i}.pdf`
+  expectRedirect(
+    await postFiles(
+      this,
+      this.uploadedFilenames.map((filename) => ({
+        filename,
+        content,
+        type: 'application/pdf'
+      }))
     )
-  }
-
-  const response = await fetch(this.uploadUrl, {
-    method: 'POST',
-    body: formData,
-    redirect: 'manual'
-  })
-
-  assert.equal(response.status, 302, `Expected 302, got ${response.status}`)
+  )
 })
 
 Then('all 5 files should be present in the status response', function () {
-  const form = this.statusResponse.data.form
-
-  let fileCount = 0
-  for (const value of Object.values(form)) {
-    if (Array.isArray(value)) {
-      fileCount += value.length
-    } else if (typeof value === 'object' && value.fileId) {
-      fileCount += 1
-    }
-  }
-
-  assert.equal(fileCount, 5, `Expected 5 files in response, got ${fileCount}`)
+  assertFilesPresent(this, this.uploadedFilenames)
 })
 
 When('I attempt to retrieve a blob for a malformed fileId', async function () {
-  this.blobResponse = await fetch(
-    `${this.baseUrl}/api/v1/blob/00000000-0000-0000-0000-000000000000`,
-    { headers: { Authorization: `Bearer ${this.token}` } }
-  )
+  this.blobResponse = await apiRequest(this, `/api/v1/blob/${MALFORMED_ID}`)
 })
 
 When('I attempt to retrieve a blob for an unknown fileId', async function () {
-  this.blobResponse = await fetch(
-    `${this.baseUrl}/api/v1/blob/${randomUUID()}`,
-    {
-      headers: { Authorization: `Bearer ${this.token}` }
-    }
-  )
+  this.blobResponse = await apiRequest(this, `/api/v1/blob/${randomUUID()}`)
 })
 
 Then('the blob response status should be {int}', function (expectedStatus) {
@@ -418,9 +315,9 @@ Then('the blob response status should be {int}', function (expectedStatus) {
 When(
   'I attempt to check the status for a malformed uploadId',
   async function () {
-    this.statusResponse = await fetch(
-      `${this.baseUrl}/api/v1/uploader/status/00000000-0000-0000-0000-000000000000`,
-      { headers: { Authorization: `Bearer ${this.token}` } }
+    this.statusResponse = await apiRequest(
+      this,
+      `/api/v1/uploader/status/${MALFORMED_ID}`
     )
   }
 )
@@ -428,9 +325,9 @@ When(
 When(
   'I attempt to check the status for an unknown uploadId',
   async function () {
-    this.statusResponse = await fetch(
-      `${this.baseUrl}/api/v1/uploader/status/${randomUUID()}`,
-      { headers: { Authorization: `Bearer ${this.token}` } }
+    this.statusResponse = await apiRequest(
+      this,
+      `/api/v1/uploader/status/${randomUUID()}`
     )
   }
 )
@@ -449,47 +346,32 @@ Then(
 Given(
   'I initiate an upload session with a special-character reference',
   async function () {
-    const payload = buildInitiatePayload()
-    payload.metadata.reference =
-      'Test reference with ünïcodé & special/chars! (2026)'
-    this.specialReference = payload.metadata.reference
+    this.specialReference =
+      'Test reference with Ã¼nÃ¯codÃ© & special/chars! (2026)'
 
-    const response = await fetch(`${this.baseUrl}/api/v1/uploader/initiate`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+    await initiateUpload(this, (payload) => {
+      payload.metadata.reference = this.specialReference
     })
-
-    assert.equal(response.status, 200, `Initiate failed: ${response.status}`)
-
-    const body = await response.json()
-    this.uploadId = body.data.uploadId
-    this.uploadUrl = body.data.uploadUrl
-    this.statusUrl = body.data.statusUrl
   }
 )
 
 Then('the reference should be preserved in the status response', function () {
   assert.equal(
-    this.statusResponse.data.metadata.reference,
+    this.statusBody.data.metadata.reference,
     this.specialReference,
-    `Expected reference to be preserved, got: ${this.statusResponse.data.metadata.reference}`
+    `Expected reference to be preserved, got: ${this.statusBody.data.metadata.reference}`
   )
 })
 
 Then(
   'the uploaded file should be retrievable via the SBI metadata endpoint',
   async function () {
-    const sbi = process.env.TEST_USER_SBI || process.env.EXT_TEST_TEST_USER_SBI
-
     const isUploadedFile = (record) => record.file.fileId === this.fileId
     const records = await getMetadataRecords({
       baseUrl: this.baseUrl,
       token: this.token,
-      sbi,
+      traceId: this.traceId,
+      sbi: process.env.TEST_USER_SBI,
       until: isUploadedFile
     })
 
@@ -519,12 +401,11 @@ Then(
 Then(
   'the upload response should redirect to the requested redirect path',
   function () {
-    const { redirect } = buildInitiatePayload()
     const location = this.uploadResponse.headers.get('location')
 
     assert.ok(
-      location && location.endsWith(redirect),
-      `Expected Location header to end with '${redirect}', got '${location}'`
+      location && location.endsWith(REDIRECT_PATH),
+      `Expected Location header to end with '${REDIRECT_PATH}', got '${location}'`
     )
   }
 )
@@ -532,10 +413,9 @@ Then(
 Then(
   'the downloaded file should match the uploaded file byte for byte',
   async function () {
-    const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex')
-    const expected = fs.readFileSync('fixtures/files/test-document.pdf')
+    const expected = readFixture('test-document.pdf')
 
-    const response = await fetch(this.presignedUrl)
+    const response = await request(this.presignedUrl)
     assert.equal(response.status, 200)
     const downloaded = Buffer.from(await response.arrayBuffer())
 
@@ -549,18 +429,16 @@ Then(
 )
 
 When('I check the upload status before uploading a file', async function () {
-  const response = await fetch(`${this.baseUrl}${this.statusUrl}`, {
-    headers: { Authorization: `Bearer ${this.token}` }
-  })
+  const response = await apiRequest(this, this.statusUrl)
 
   assert.equal(response.status, 200, `Expected 200, got ${response.status}`)
-  this.statusResponse = await response.json()
+  this.statusBody = await response.json()
 })
 
 Then(
   'the upload should be pending at stage {string} with no errors',
   function (expectedStage) {
-    const { uploadStatus, stage, errors } = this.statusResponse.data
+    const { uploadStatus, stage, errors } = this.statusBody.data
 
     assert.equal(uploadStatus, 'pending')
     assert.equal(stage, expectedStage)
@@ -571,7 +449,7 @@ Then(
 Then(
   'the status response metadata should not contain a journeyId',
   function () {
-    const { metadata } = this.statusResponse.data
+    const { metadata } = this.statusBody.data
 
     assert.ok(metadata, 'Expected metadata in the status response')
     assert.ok(
@@ -585,23 +463,18 @@ When(
   'I upload an executable disguised as a PDF to the CDP Uploader',
   async function () {
     // Minimal DOS header with a PE signature, so content sniffing sees an executable
-    const fileBuffer = Buffer.alloc(1024)
-    fileBuffer.write('MZ', 0, 'ascii')
-    fileBuffer.writeUInt32LE(0x80, 0x3c)
-    fileBuffer.write('PE\0\0', 0x80, 'binary')
+    const content = Buffer.alloc(1024)
+    content.write('MZ', 0, 'ascii')
+    content.writeUInt32LE(0x80, 0x3c)
+    content.write('PE\0\0', 0x80, 'binary')
 
-    const formData = new FormData()
-    formData.append(
-      'file-upload-1',
-      new Blob([fileBuffer], { type: 'application/pdf' }),
-      'disguised-executable.pdf'
-    )
-
-    this.uploadResponse = await fetch(this.uploadUrl, {
-      method: 'POST',
-      body: formData,
-      redirect: 'manual'
-    })
+    this.uploadResponse = await postFiles(this, [
+      {
+        filename: 'disguised-executable.pdf',
+        content,
+        type: 'application/pdf'
+      }
+    ])
   }
 )
 
@@ -614,23 +487,14 @@ When(
       'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'
     ].join('')
 
-    const formData = new FormData()
-    formData.append(
-      'file-upload-1',
-      new Blob([eicar], { type: 'text/plain' }),
-      'eicar-test-file.txt'
-    )
-
-    this.uploadResponse = await fetch(this.uploadUrl, {
-      method: 'POST',
-      body: formData,
-      redirect: 'manual'
-    })
+    this.uploadResponse = await postFiles(this, [
+      { filename: 'eicar-test-file.txt', content: eicar, type: 'text/plain' }
+    ])
   }
 )
 
 Then('the upload should be rejected by the scanner', function () {
-  const { uploadStatus, stage, errors, form } = this.statusResponse.data
+  const { uploadStatus, stage, errors, form } = this.statusBody.data
 
   assert.equal(uploadStatus, 'failure')
   assert.equal(stage, 'rejected-by-scanner')
@@ -639,7 +503,7 @@ Then('the upload should be rejected by the scanner', function () {
     `Expected scanner errors, got: ${JSON.stringify(errors)}`
   )
 
-  const firstFile = Object.values(form)[0]
+  const [firstFile] = listFiles(form)
   assert.equal(firstFile.fileStatus, 'rejected')
   assert.equal(firstFile.hasError, true)
 })

@@ -5,11 +5,14 @@ class UploadWorld {
   constructor() {
     this.baseUrl = process.env.OBJECT_PROCESSOR_URL
     this.token = null
+    this.traceId = null
     this.uploadId = null
     this.uploadUrl = null
     this.statusUrl = null
     this.fileId = null
     this.statusResponse = null
+    this.statusBody = null
+    this.uploadedFilenames = null
     this.presignedUrl = null
     this.callbackPayload = null
     this.callbackResponse = null
