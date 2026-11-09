@@ -54,7 +54,7 @@ After(async function ({ result, pickle }) {
     reference: this.crmReference
   })
     .filter(([, value]) => value)
-    .map(([key, value]) => `=${value}`)
+    .map(([key, value]) => `${key}: ${value}`)
 
   const details = [
     `scenario: ${pickle.name}`,

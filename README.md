@@ -16,7 +16,7 @@ Uses Cucumber + Node fetch to drive HTTP-level tests against the object processo
 
 The run stops before any scenario starts if a required variable is missing, and lists every missing one.
 
-To run locally against `test`, use the `api` host for `OBJECT_PROCESSOR_URL` (the internal host is only reachable from the platform). On a network that intercepts TLS, Node fails with `unable to get local issuer certificate`; set `NODE_USE_SYSTEM_CA=1` to use the operating system's certificates. Scenarios tagged `@internal-url` and `@crm` cannot run from a laptop.
+To run locally against `test`, use the `api` host for `OBJECT_PROCESSOR_URL` (the internal host is only reachable from the platform). On a network that intercepts TLS, Node fails with `unable to get local issuer certificate`; set `NODE_USE_SYSTEM_CA=1` to use the operating system's certificates. If your network only reaches Cognito through a proxy, also set `NODE_USE_ENV_PROXY=1` and `HTTPS_PROXY` in the shell before starting the run (for example `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://localhost:3128 npm test`). Node reads these when the process starts, so putting them in `.env` is too late for the Cognito request. Scenarios tagged `@internal-url` and `@crm` cannot run from a laptop.
 
 ## Running the tests
 
